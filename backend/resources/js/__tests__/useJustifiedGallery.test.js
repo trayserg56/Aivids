@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildJustifiedRows, selectVideosForFilledRows } from '@/composables/useJustifiedGallery';
+import {
+    buildJustifiedRows,
+    selectVideosForFilledRows,
+    PREVIEW_LAYOUT_OPTIONS,
+    MOBILE_LAYOUT_OPTIONS,
+    rowContentWidth,
+} from '@/composables/useJustifiedGallery';
 
 describe('buildJustifiedRows', () => {
     const videos = [
@@ -10,7 +16,7 @@ describe('buildJustifiedRows', () => {
 
     it('creates rows that fill container width', () => {
         const rows = buildJustifiedRows(videos, 1200, 200, 12);
-        const firstRowWidth = rows[0].reduce((sum, cell) => sum + cell.width, 0) + 12 * (rows[0].length - 1);
+        const firstRowWidth = rowContentWidth(rows[0], 12);
 
         expect(rows.length).toBeGreaterThan(0);
         expect(firstRowWidth).toBeCloseTo(1200, 0);
@@ -41,9 +47,7 @@ describe('buildJustifiedRows', () => {
         const rows = buildJustifiedRows(videos, 359, 220, 12, 3);
 
         for (const row of rows) {
-            const total = row.reduce((sum, cell) => sum + cell.width, 0) + 12 * (row.length - 1);
-
-            expect(total).toBeLessThanOrEqual(359);
+            expect(rowContentWidth(row, 12)).toBeLessThanOrEqual(359);
         }
     });
 
@@ -58,17 +62,43 @@ describe('buildJustifiedRows', () => {
         expect(rows[0][0].width).toBe(Math.floor(220 * (1080 / 1920)));
     });
 
-    it('fills the last row when fillLastRow is enabled', () => {
+    it('caps upscale on preview rows instead of stretching to full width', () => {
+        const naturalWidth = Math.floor(220 * (1080 / 1920));
         const rows = buildJustifiedRows(
             [{ id: 1, width: 1080, height: 1920 }],
             360,
             220,
             12,
             Infinity,
-            { fillLastRow: true },
+            PREVIEW_LAYOUT_OPTIONS,
         );
 
-        expect(rows[0][0].width).toBe(360);
+        expect(rows[0][0].width).toBeLessThanOrEqual(Math.ceil(naturalWidth * PREVIEW_LAYOUT_OPTIONS.maxUpscale));
+        expect(rows[0][0].width).toBeLessThan(360);
+    });
+
+    it('fills mobile rows with one or two portrait videos', () => {
+        const portrait = { id: 1, width: 1080, height: 1920 };
+
+        const singleRow = buildJustifiedRows(
+            [portrait],
+            360,
+            220,
+            12,
+            2,
+            MOBILE_LAYOUT_OPTIONS,
+        );
+        expect(rowContentWidth(singleRow[0], 12)).toBe(360);
+
+        const pairRow = buildJustifiedRows(
+            [portrait, { id: 2, width: 1080, height: 1920 }],
+            360,
+            220,
+            12,
+            2,
+            MOBILE_LAYOUT_OPTIONS,
+        );
+        expect(rowContentWidth(pairRow[0], 12)).toBe(360);
     });
 
     it('adds more videos until the second preview row is populated', () => {
@@ -84,14 +114,10 @@ describe('buildJustifiedRows', () => {
         ];
 
         const selected = selectVideosForFilledRows(videos, 1200, 280, 12, Infinity, 2);
-        const rows = buildJustifiedRows(selected, 1200, 280, 12, Infinity, { fillLastRow: true });
+        const rows = buildJustifiedRows(selected, 1200, 280, 12, Infinity, PREVIEW_LAYOUT_OPTIONS);
 
         expect(rows).toHaveLength(2);
         expect(selected.length).toBeGreaterThan(6);
-
-        const secondRowWidth =
-            rows[1].reduce((sum, cell) => sum + cell.width, 0) + 12 * (rows[1].length - 1);
-
-        expect(secondRowWidth).toBe(1200);
+        expect(rows[1].length).toBeGreaterThanOrEqual(3);
     });
 });

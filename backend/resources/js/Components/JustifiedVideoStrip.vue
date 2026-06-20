@@ -1,7 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import VideoCard from './VideoCard.vue';
-import { buildJustifiedRows, selectVideosForFilledRows } from '@/composables/useJustifiedGallery';
+import {
+    buildJustifiedRows,
+    selectVideosForFilledRows,
+    getLayoutOptions,
+    rowContentWidth,
+} from '@/composables/useJustifiedGallery';
 
 const props = defineProps({
     videos: { type: Array, required: true },
@@ -43,6 +48,10 @@ const pool = computed(() => {
     return source;
 });
 
+const layoutOptions = computed(() =>
+    getLayoutOptions(containerWidth.value, Boolean(props.targetRows)),
+);
+
 const items = computed(() => {
     if (props.targetRows && containerWidth.value > 0) {
         return selectVideosForFilledRows(
@@ -52,6 +61,7 @@ const items = computed(() => {
             props.gap,
             effectiveMaxItemsPerRow.value,
             props.targetRows,
+            layoutOptions.value,
         );
     }
 
@@ -65,8 +75,22 @@ const rows = computed(() =>
         props.rowHeight,
         props.gap,
         effectiveMaxItemsPerRow.value,
-        props.targetRows ? { fillLastRow: true } : {},
+        layoutOptions.value,
     ),
+);
+
+const rowLayouts = computed(() =>
+    rows.value.map((row) => {
+        const total = rowContentWidth(row, props.gap);
+        const fillsWidth = total >= containerWidth.value * 0.98;
+        const useSpaceBetween =
+            props.targetRows && !layoutOptions.value.fillPartialRows && !fillsWidth;
+
+        return {
+            row,
+            justifyContent: useSpaceBetween ? 'space-between' : 'flex-start',
+        };
+    }),
 );
 
 let resizeObserver;
@@ -107,13 +131,17 @@ onUnmounted(() => resizeObserver?.disconnect());
         :style="{ gap: `${gap}px` }"
     >
         <div
-            v-for="(row, rowIndex) in rows"
+            v-for="(layout, rowIndex) in rowLayouts"
             :key="rowIndex"
             class="flex min-w-0 max-w-full"
-            :style="{ gap: `${gap}px`, height: `${rowHeight}px` }"
+            :style="{
+                gap: `${gap}px`,
+                height: `${rowHeight}px`,
+                justifyContent: layout.justifyContent,
+            }"
         >
             <VideoCard
-                v-for="cell in row"
+                v-for="cell in layout.row"
                 :key="cell.video.id"
                 :video="cell.video"
                 :eager="rowIndex === 0"

@@ -1,10 +1,28 @@
+/** @typedef {{ fillLastRow?: boolean, fillAllRows?: boolean, maxUpscale?: number, fillPartialRows?: boolean }} LayoutOptions */
+
+export const PREVIEW_LAYOUT_OPTIONS = {
+    fillLastRow: true,
+    maxUpscale: 1.12,
+};
+
+export const MOBILE_LAYOUT_OPTIONS = {
+    fillLastRow: true,
+    fillPartialRows: true,
+};
+
+export function getLayoutOptions(containerWidth, isPreview = false) {
+    if (containerWidth < 640) {
+        return MOBILE_LAYOUT_OPTIONS;
+    }
+
+    return isPreview ? PREVIEW_LAYOUT_OPTIONS : {};
+}
+
 /**
  * Pack videos into justified rows with fixed height and variable width.
  *
  * @param {Array<{width?: number, height?: number}>} videos
- * @param {object} [options]
- * @param {boolean} [options.fillLastRow] Stretch the last row to full container width.
- * @param {boolean} [options.fillAllRows] Stretch every row to full container width.
+ * @param {LayoutOptions} [options]
  * @returns {Array<Array<{video: object, width: number}>>}
  */
 export function buildJustifiedRows(
@@ -19,7 +37,6 @@ export function buildJustifiedRows(
         return [];
     }
 
-    const { fillLastRow = false, fillAllRows = false } = options;
     const availableWidth = Math.floor(containerWidth);
     const rows = [];
     let currentRow = [];
@@ -35,7 +52,14 @@ export function buildJustifiedRows(
 
         if (wouldOverflow || hitsMaxItems) {
             rows.push(
-                scaleRow(currentRow, availableWidth, rowHeight, gap, resolveAllowUpscale(currentRow, false, options)),
+                scaleRow(
+                    currentRow,
+                    availableWidth,
+                    rowHeight,
+                    gap,
+                    resolveAllowUpscale(currentRow, false, options),
+                    options,
+                ),
             );
             currentRow = [video];
             currentWidth = naturalWidth;
@@ -47,7 +71,14 @@ export function buildJustifiedRows(
 
     if (currentRow.length) {
         rows.push(
-            scaleRow(currentRow, availableWidth, rowHeight, gap, resolveAllowUpscale(currentRow, true, options)),
+            scaleRow(
+                currentRow,
+                availableWidth,
+                rowHeight,
+                gap,
+                resolveAllowUpscale(currentRow, true, options),
+                options,
+            ),
         );
     }
 
@@ -66,6 +97,7 @@ export function selectVideosForFilledRows(
     gap = 12,
     maxItemsPerRow = Infinity,
     targetRows = 2,
+    layoutOptions = PREVIEW_LAYOUT_OPTIONS,
 ) {
     if (!videos.length || containerWidth <= 0) {
         return [];
@@ -81,6 +113,7 @@ export function selectVideosForFilledRows(
             rowHeight,
             gap,
             maxItemsPerRow,
+            layoutOptions,
         );
 
         if (rows.length > targetRows) {
@@ -93,14 +126,28 @@ export function selectVideosForFilledRows(
             continue;
         }
 
-        const lastRow = rows[rows.length - 1];
-
-        if (lastRow.length >= 2 || index === videos.length) {
+        if (rowsAreBalanced(rows, containerWidth, gap, layoutOptions)) {
             break;
         }
     }
 
     return selected;
+}
+
+export function rowContentWidth(row, gap) {
+    return row.reduce((sum, cell) => sum + cell.width, 0) + gap * Math.max(0, row.length - 1);
+}
+
+export function rowsAreBalanced(rows, containerWidth, gap, layoutOptions = {}, minFillRatio = 0.9) {
+    if (layoutOptions.fillPartialRows) {
+        return rows.every((row) => row.length <= 2 || rowContentWidth(row, gap) >= containerWidth * minFillRatio);
+    }
+
+    return rows.every((row) => {
+        const width = rowContentWidth(row, gap);
+
+        return width >= containerWidth * minFillRatio || row.length >= 3;
+    });
 }
 
 function resolveAllowUpscale(row, isLastRow, options) {
@@ -149,7 +196,15 @@ function distributeWidths(rawWidths, totalWidth) {
     return widths;
 }
 
-function scaleRow(videos, containerWidth, rowHeight, gap, allowUpscale = true) {
+function scaleRow(
+    videos,
+    containerWidth,
+    rowHeight,
+    gap,
+    allowUpscale = true,
+    options = {},
+) {
+    const { maxUpscale = Infinity, fillPartialRows = false } = options;
     const gaps = gap * (videos.length - 1);
     const contentWidth = containerWidth - gaps;
     const naturalTotal = videos.reduce(
@@ -157,16 +212,24 @@ function scaleRow(videos, containerWidth, rowHeight, gap, allowUpscale = true) {
         0,
     );
 
+    const shouldFillPartialRow = fillPartialRows && videos.length <= 2;
+    const effectiveAllowUpscale = shouldFillPartialRow || allowUpscale;
+
     let scale = contentWidth / naturalTotal;
 
-    if (!allowUpscale) {
+    if (effectiveAllowUpscale) {
+        if (!shouldFillPartialRow) {
+            scale = Math.min(scale, maxUpscale);
+        }
+    } else {
         scale = Math.min(scale, 1);
     }
 
     const rawWidths = videos.map((video) => rowHeight * aspectRatio(video) * scale);
-    const targetWidth = allowUpscale
-        ? contentWidth
-        : Math.min(contentWidth, Math.floor(naturalTotal * scale));
+    const scaledTotal = naturalTotal * scale;
+    const targetWidth = effectiveAllowUpscale
+        ? Math.min(contentWidth, Math.floor(scaledTotal))
+        : Math.min(contentWidth, Math.floor(scaledTotal));
     const widths = distributeWidths(rawWidths, targetWidth);
 
     return videos.map((video, index) => ({
