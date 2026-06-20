@@ -2,6 +2,7 @@
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useContactModal } from '@/composables/useContactModal';
+import { useContactSuccess } from '@/composables/useContactSuccess';
 import {
     destroyYandexSmartCaptcha,
     executeYandexSmartCaptcha,
@@ -18,7 +19,8 @@ const props = defineProps({
 });
 
 const page = usePage();
-const { context } = useContactModal();
+const { context, isOpen: isContactModalOpen, close: closeContactModal } = useContactModal();
+const { show: showContactSuccess } = useContactSuccess();
 
 const captchaClientKey = computed(() => page.props.captcha?.yandex_client_key ?? null);
 const captchaEnabled = computed(() => Boolean(captchaClientKey.value));
@@ -26,8 +28,6 @@ const captchaContainer = ref(null);
 const captchaLoadError = ref(false);
 const captchaWidgetId = ref(null);
 const captchaVerifying = ref(false);
-
-const successText = 'Заявка отправлена! Мы свяжемся с вами в ближайшее время.';
 
 const form = useForm({
     name: '',
@@ -39,10 +39,8 @@ const form = useForm({
     smart_token: '',
 });
 
-const submitted = ref(false);
 const phoneTouched = ref(false);
 
-const successMessage = computed(() => (submitted.value ? successText : null));
 const isSubmitting = computed(() => form.processing || captchaVerifying.value);
 
 const phoneInputClass = computed(() => [
@@ -175,8 +173,13 @@ function postForm(smartToken) {
             onSuccess: () => {
                 form.reset();
                 phoneTouched.value = false;
-                submitted.value = true;
                 resetYandexSmartCaptcha(captchaWidgetId.value);
+
+                if (isContactModalOpen.value) {
+                    closeContactModal();
+                }
+
+                showContactSuccess();
             },
             onError: () => {
                 resetYandexSmartCaptcha(captchaWidgetId.value);
@@ -223,7 +226,6 @@ function reset() {
     form.reset();
     form.clearErrors();
     phoneTouched.value = false;
-    submitted.value = false;
     captchaVerifying.value = false;
     resetYandexSmartCaptcha(captchaWidgetId.value);
 }
@@ -233,13 +235,6 @@ defineExpose({ reset });
 
 <template>
     <form class="space-y-5" @submit.prevent="submit">
-        <div
-            v-if="successMessage"
-            class="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300"
-        >
-            {{ successMessage }}
-        </div>
-
         <div>
             <label :for="fieldId('name')" class="mb-2 block text-sm font-medium text-white">Имя</label>
             <input

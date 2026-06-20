@@ -3,6 +3,7 @@ import SiteHeader from '@/Components/SiteHeader.vue';
 import SiteFooter from '@/Components/SiteFooter.vue';
 import VideoLightbox from '@/Components/VideoLightbox.vue';
 import ContactModal from '@/Components/ContactModal.vue';
+import ContactSuccessPopup from '@/Components/ContactSuccessPopup.vue';
 </script>
 
 <template>
@@ -14,5 +15,6 @@ import ContactModal from '@/Components/ContactModal.vue';
         <SiteFooter />
         <VideoLightbox />
         <ContactModal />
+        <ContactSuccessPopup />
     </div>
 </template>
