@@ -1,8 +1,9 @@
-/** @typedef {{ fillLastRow?: boolean, fillAllRows?: boolean, maxUpscale?: number, fillPartialRows?: boolean }} LayoutOptions */
+/** @typedef {{ fillLastRow?: boolean, fillAllRows?: boolean, maxUpscale?: number, fillPartialRows?: boolean, splitByAspect?: boolean }} LayoutOptions */
 
 export const PREVIEW_LAYOUT_OPTIONS = {
     fillLastRow: true,
     maxUpscale: 1.12,
+    splitByAspect: true,
 };
 
 export const MOBILE_LAYOUT_OPTIONS = {
@@ -10,8 +11,8 @@ export const MOBILE_LAYOUT_OPTIONS = {
     fillPartialRows: true,
 };
 
-export const DEFAULT_LAYOUT_OPTIONS = {
-    maxUpscale: 1.12,
+export const FULL_LAYOUT_OPTIONS = {
+    fillAllRows: true,
 };
 
 export function getLayoutOptions(containerWidth, isPreview = false) {
@@ -19,7 +20,7 @@ export function getLayoutOptions(containerWidth, isPreview = false) {
         return MOBILE_LAYOUT_OPTIONS;
     }
 
-    return isPreview ? PREVIEW_LAYOUT_OPTIONS : DEFAULT_LAYOUT_OPTIONS;
+    return isPreview ? PREVIEW_LAYOUT_OPTIONS : FULL_LAYOUT_OPTIONS;
 }
 
 /**
@@ -52,7 +53,7 @@ export function buildJustifiedRows(
         const wouldOverflow =
             currentRow.length > 0 && currentWidth + gap + naturalWidth > availableWidth;
         const hitsMaxItems = currentRow.length >= maxItemsPerRow;
-        const aspectSplit = shouldSplitRowForAspect(currentRow, video);
+        const aspectSplit = options.splitByAspect && shouldSplitRowForAspect(currentRow, video);
 
         if (wouldOverflow || hitsMaxItems || aspectSplit) {
             rows.push(
@@ -370,6 +371,19 @@ function scaleRow(
     }
 
     if (shouldFillPartialRow) {
+        const scale = contentWidth / naturalTotal;
+        const widths = distributeWidths(
+            naturals.map((natural) => natural * scale),
+            contentWidth,
+        );
+
+        return videos.map((video, index) => ({
+            video,
+            width: widths[index],
+        }));
+    }
+
+    if (maxUpscale === Infinity) {
         const scale = contentWidth / naturalTotal;
         const widths = distributeWidths(
             naturals.map((natural) => natural * scale),

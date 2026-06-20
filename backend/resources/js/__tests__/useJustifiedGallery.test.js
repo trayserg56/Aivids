@@ -3,6 +3,7 @@ import {
     buildJustifiedRows,
     selectVideosForFilledRows,
     PREVIEW_LAYOUT_OPTIONS,
+    FULL_LAYOUT_OPTIONS,
     MOBILE_LAYOUT_OPTIONS,
     rowContentWidth,
 } from '@/composables/useJustifiedGallery';
@@ -107,7 +108,7 @@ describe('buildJustifiedRows', () => {
         expect(rowContentWidth(pairRow[0], 12)).toBe(360);
     });
 
-    it('keeps portrait and landscape videos on separate rows', () => {
+    it('keeps portrait and landscape videos on separate rows in preview mode', () => {
         const rows = buildJustifiedRows(
             [
                 { id: 1, width: 1080, height: 1920 },
@@ -117,12 +118,31 @@ describe('buildJustifiedRows', () => {
             1200,
             280,
             12,
+            Infinity,
+            PREVIEW_LAYOUT_OPTIONS,
         );
 
         expect(rows).toHaveLength(2);
         expect(rows[0].map((cell) => cell.video.id)).toEqual([1, 2]);
         expect(rows[1][0].video.id).toBe(3);
         expect(rows[1][0].width).toBeGreaterThan(rows[0][0].width);
+    });
+
+    it('fills full-width gallery rows even when orientations are mixed', () => {
+        const rows = buildJustifiedRows(
+            [
+                { id: 1, width: 1080, height: 1920 },
+                { id: 2, width: 1080, height: 1920 },
+                { id: 3, width: 1920, height: 1080 },
+            ],
+            1200,
+            220,
+            12,
+            Infinity,
+            FULL_LAYOUT_OPTIONS,
+        );
+
+        expect(rowContentWidth(rows[0], 12)).toBeGreaterThanOrEqual(1195);
     });
 
     it('caps upscale per tile instead of stretching square videos to fill a row', () => {
