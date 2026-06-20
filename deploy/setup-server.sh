@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="${DOMAIN:-ai.saittikhonova.ru}"
+DOMAIN="${DOMAIN:-aivids.saittikhonova.ru}"
 APP_DIR="${APP_DIR:-/var/www/aivids}"
 TIMETOEAT_DIR="${TIMETOEAT_DIR:-/var/www/timetoeat}"
 CERTBOT_EMAIL="${CERTBOT_EMAIL:-admin@saittikhonova.ru}"
