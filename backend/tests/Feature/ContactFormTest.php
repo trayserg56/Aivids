@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\NotifyContactSubmissionTelegramJob;
 use App\Models\ContactSubmission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class ContactFormTest extends TestCase
@@ -12,6 +14,8 @@ class ContactFormTest extends TestCase
 
     public function test_contact_form_accepts_valid_submission(): void
     {
+        Queue::fake();
+
         $response = $this->post('/contact', [
             'name' => 'Иван Петров',
             'email' => 'ivan@example.com',
@@ -26,6 +30,8 @@ class ContactFormTest extends TestCase
             'name' => 'Иван Петров',
             'email' => 'ivan@example.com',
         ]);
+
+        Queue::assertPushed(NotifyContactSubmissionTelegramJob::class);
     }
 
     public function test_contact_form_accepts_submission_without_email_and_message(): void

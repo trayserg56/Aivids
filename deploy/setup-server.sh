@@ -68,6 +68,9 @@ VIDEOS_SOURCE_PATH=/var/www/Videos
 # Yandex SmartCaptcha — те же ключи, что на saittikhonova.ru (поддомены работают автоматически)
 YANDEX_SMARTCAPTCHA_CLIENT_KEY=
 YANDEX_SMARTCAPTCHA_SERVER_KEY=
+
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
 EOF
 fi
 
