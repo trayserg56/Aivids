@@ -17,6 +17,9 @@ set +a
 echo "==> Docker services"
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
+echo "==> Reload nginx (pick up new app container IP)"
+docker compose restart nginx
+
 echo "==> Composer"
 docker compose exec -T app composer install --no-dev --optimize-autoloader --no-interaction
 
