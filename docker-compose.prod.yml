@@ -1,0 +1,16 @@
+services:
+  nginx:
+    ports:
+      - "127.0.0.1:8091:80"
+    restart: unless-stopped
+
+  app:
+    restart: unless-stopped
+
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped

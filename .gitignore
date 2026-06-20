@@ -12,3 +12,4 @@ backend/public/build
 
 backend/.phpunit.result.cache
 .DS_Store
+tmp-benefits-ref.mov
