@@ -142,7 +142,7 @@ onMounted(async () => {
             captchaClientKey.value,
             {
                 invisible: true,
-                shieldPosition: 'bottom-right',
+                hideShield: true,
                 onSuccess: onCaptchaToken,
             },
         );
@@ -303,6 +303,19 @@ defineExpose({ reset });
         </p>
         <p v-else-if="form.errors.smart_token" class="text-sm text-red-400">
             {{ form.errors.smart_token }}
+        </p>
+
+        <p v-if="captchaEnabled && !captchaLoadError" class="text-xs leading-relaxed text-text-muted">
+            Отправляя форму, вы соглашаетесь с
+            <a
+                href="https://yandex.ru/legal/smartcaptcha_notice/"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-text-muted underline decoration-border underline-offset-2 transition hover:text-white"
+            >
+                политикой обработки данных
+            </a>
+            сервиса Yandex SmartCaptcha.
         </p>
 
         <button type="submit" class="btn-primary w-full" :disabled="isSubmitting || captchaLoadError">

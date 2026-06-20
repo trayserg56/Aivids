@@ -31,7 +31,7 @@ export function loadYandexSmartCaptchaScript() {
     return scriptPromise;
 }
 
-export function renderYandexSmartCaptcha(container, sitekey, { invisible = false, onSuccess, shieldPosition } = {}) {
+export function renderYandexSmartCaptcha(container, sitekey, { invisible = false, hideShield = false, onSuccess, shieldPosition } = {}) {
     if (!window.smartCaptcha || !container || !sitekey) {
         return null;
     }
@@ -42,6 +42,7 @@ export function renderYandexSmartCaptcha(container, sitekey, { invisible = false
         sitekey,
         hl: 'ru',
         invisible,
+        hideShield,
         callback: (token) => onSuccess?.(token),
     };
 
