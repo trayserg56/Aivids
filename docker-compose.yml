@@ -1,0 +1,82 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: aivids_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - ./Videos:/var/www/Videos:ro
+    environment:
+      VIDEOS_SOURCE_PATH: /var/www/Videos
+    networks:
+      - aivids
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: aivids_nginx
+    restart: unless-stopped
+    ports:
+      - "8091:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - aivids
+    depends_on:
+      - app
+
+  node:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    container_name: aivids_node
+    working_dir: /var/www/html
+    ports:
+      - "5175:5175"
+    volumes:
+      - ./backend:/var/www/html
+    networks:
+      - aivids
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5175"
+    profiles:
+      - dev
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: aivids_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aivids
+      POSTGRES_USER: aivids
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - aivids_postgres:/var/lib/postgresql/data
+    networks:
+      - aivids
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aivids -d aivids"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aivids_redis
+    restart: unless-stopped
+    networks:
+      - aivids
+
+networks:
+  aivids:
+    driver: bridge
+
+volumes:
+  aivids_postgres:

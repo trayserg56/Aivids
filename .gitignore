@@ -1,0 +1,14 @@
+/node_modules
+/vendor
+.env
+.env.*
+!.env.example
+backend/vendor
+backend/node_modules
+backend/public/hot
+backend/public/build
+/Videos/*
+!/Videos/.gitkeep
+
+backend/.phpunit.result.cache
+.DS_Store
