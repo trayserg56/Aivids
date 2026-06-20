@@ -99,8 +99,8 @@ class VideoConverter
             'ffprobe',
             '-v', 'error',
             '-select_streams', 'v:0',
-            '-show_entries', 'stream=width,height',
-            '-of', 'csv=s=x:p=0',
+            '-show_entries', 'stream=width,height:stream_tags=rotate',
+            '-of', 'json',
             $path,
         ]);
 
@@ -108,13 +108,26 @@ class VideoConverter
             return [1920, 1080];
         }
 
-        $output = trim($result->output());
+        $data = json_decode($result->output(), true);
+        $stream = $data['streams'][0] ?? null;
 
-        if (preg_match('/^(\d+)x(\d+)$/', $output, $matches)) {
-            return [(int) $matches[1], (int) $matches[2]];
+        if (! is_array($stream)) {
+            return [1920, 1080];
         }
 
-        return [1920, 1080];
+        $width = (int) ($stream['width'] ?? 1920);
+        $height = (int) ($stream['height'] ?? 1080);
+        $rotation = (int) ($stream['tags']['rotate'] ?? 0);
+
+        if (in_array(abs($rotation), [90, 270], true)) {
+            [$width, $height] = [$height, $width];
+        }
+
+        if ($width <= 0 || $height <= 0) {
+            return [1920, 1080];
+        }
+
+        return [$width, $height];
     }
 
     public function probeDuration(string $path): float

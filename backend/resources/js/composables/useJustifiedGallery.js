@@ -10,12 +10,16 @@ export const MOBILE_LAYOUT_OPTIONS = {
     fillPartialRows: true,
 };
 
+export const DEFAULT_LAYOUT_OPTIONS = {
+    maxUpscale: 1.12,
+};
+
 export function getLayoutOptions(containerWidth, isPreview = false) {
     if (containerWidth < 640) {
         return MOBILE_LAYOUT_OPTIONS;
     }
 
-    return isPreview ? PREVIEW_LAYOUT_OPTIONS : {};
+    return isPreview ? PREVIEW_LAYOUT_OPTIONS : DEFAULT_LAYOUT_OPTIONS;
 }
 
 /**
@@ -43,14 +47,14 @@ export function buildJustifiedRows(
     let currentWidth = 0;
 
     for (const video of videos) {
-        const aspect = aspectRatio(video);
-        const naturalWidth = rowHeight * aspect;
+        const naturalWidth = cellNaturalWidth(video, rowHeight);
 
         const wouldOverflow =
             currentRow.length > 0 && currentWidth + gap + naturalWidth > availableWidth;
         const hitsMaxItems = currentRow.length >= maxItemsPerRow;
+        const aspectSplit = shouldSplitRowForAspect(currentRow, video);
 
-        if (wouldOverflow || hitsMaxItems) {
+        if (wouldOverflow || hitsMaxItems || aspectSplit) {
             rows.push(
                 scaleRow(
                     currentRow,
@@ -106,7 +110,18 @@ export function selectVideosForFilledRows(
     let selected = [videos[0]];
 
     for (let index = 1; index <= videos.length; index += 1) {
-        const candidate = videos.slice(0, index);
+        let candidate = videos.slice(0, index);
+        candidate = augmentSelection(
+            videos,
+            candidate,
+            containerWidth,
+            rowHeight,
+            gap,
+            maxItemsPerRow,
+            targetRows,
+            layoutOptions,
+        );
+
         const rows = buildJustifiedRows(
             candidate,
             containerWidth,
@@ -134,8 +149,104 @@ export function selectVideosForFilledRows(
     return selected;
 }
 
+function augmentSelection(
+    allVideos,
+    selected,
+    containerWidth,
+    rowHeight,
+    gap,
+    maxItemsPerRow,
+    targetRows,
+    layoutOptions,
+) {
+    let current = [...selected];
+    let rows = buildJustifiedRows(
+        current,
+        containerWidth,
+        rowHeight,
+        gap,
+        maxItemsPerRow,
+        layoutOptions,
+    );
+
+    if (rows.length > targetRows || rowsAreBalanced(rows, containerWidth, gap, layoutOptions)) {
+        return current;
+    }
+
+    const selectedIds = new Set(current.map((video) => video.id));
+    const remaining = allVideos.filter((video) => !selectedIds.has(video.id));
+    const lastRowVideos = rows[rows.length - 1]?.map((cell) => cell.video) ?? [];
+    const preferredCategory = lastRowVideos.length
+        ? aspectCategory(lastRowVideos[0])
+        : null;
+
+    for (const video of remaining) {
+        if (
+            preferredCategory
+            && aspectCategory(video) !== preferredCategory
+            && shouldSplitRowForAspect(lastRowVideos, video)
+        ) {
+            continue;
+        }
+
+        const candidate = [...current, video];
+        const candidateRows = buildJustifiedRows(
+            candidate,
+            containerWidth,
+            rowHeight,
+            gap,
+            maxItemsPerRow,
+            layoutOptions,
+        );
+
+        if (candidateRows.length > targetRows) {
+            continue;
+        }
+
+        return augmentSelection(
+            allVideos,
+            candidate,
+            containerWidth,
+            rowHeight,
+            gap,
+            maxItemsPerRow,
+            targetRows,
+            layoutOptions,
+        );
+    }
+
+    return current;
+}
+
 export function rowContentWidth(row, gap) {
     return row.reduce((sum, cell) => sum + cell.width, 0) + gap * Math.max(0, row.length - 1);
+}
+
+export function aspectCategory(video) {
+    const ratio = aspectRatio(video);
+
+    if (ratio < 0.85) {
+        return 'portrait';
+    }
+
+    if (ratio <= 1.25) {
+        return 'square';
+    }
+
+    return 'landscape';
+}
+
+export function shouldSplitRowForAspect(currentRow, nextVideo) {
+    if (!currentRow.length) {
+        return false;
+    }
+
+    const rowCategory = aspectCategory(currentRow[0]);
+    const nextCategory = aspectCategory(nextVideo);
+
+    return rowCategory === 'portrait'
+        ? nextCategory !== 'portrait'
+        : nextCategory === 'portrait';
 }
 
 export function rowsAreBalanced(rows, containerWidth, gap, layoutOptions = {}, minFillRatio = 0.9) {
@@ -169,6 +280,10 @@ function aspectRatio(video) {
     return w / h;
 }
 
+function cellNaturalWidth(video, rowHeight) {
+    return rowHeight * aspectRatio(video);
+}
+
 function distributeWidths(rawWidths, totalWidth) {
     const widths = rawWidths.map((width) => Math.floor(width));
     let used = widths.reduce((sum, width) => sum + width, 0);
@@ -196,6 +311,26 @@ function distributeWidths(rawWidths, totalWidth) {
     return widths;
 }
 
+function distributeWithCaps(naturals, caps, targetWidth) {
+    const naturalTotal = naturals.reduce((sum, width) => sum + width, 0);
+
+    if (naturalTotal <= 0) {
+        return naturals.map(() => 0);
+    }
+
+    let scale = targetWidth / naturalTotal;
+    let raw = naturals.map((natural, index) => Math.min(natural * scale, caps[index]));
+    let total = raw.reduce((sum, width) => sum + width, 0);
+
+    if (total > targetWidth) {
+        scale = targetWidth / total;
+        raw = raw.map((width) => width * scale);
+        total = raw.reduce((sum, width) => sum + width, 0);
+    }
+
+    return distributeWidths(raw, Math.min(targetWidth, Math.floor(total)));
+}
+
 function scaleRow(
     videos,
     containerWidth,
@@ -207,30 +342,50 @@ function scaleRow(
     const { maxUpscale = Infinity, fillPartialRows = false } = options;
     const gaps = gap * (videos.length - 1);
     const contentWidth = containerWidth - gaps;
-    const naturalTotal = videos.reduce(
-        (sum, video) => sum + rowHeight * aspectRatio(video),
-        0,
-    );
+    const naturals = videos.map((video) => cellNaturalWidth(video, rowHeight));
+    const naturalTotal = naturals.reduce((sum, width) => sum + width, 0);
 
     const shouldFillPartialRow = fillPartialRows && videos.length <= 2;
     const effectiveAllowUpscale = shouldFillPartialRow || allowUpscale;
 
-    let scale = contentWidth / naturalTotal;
+    if (naturalTotal > contentWidth) {
+        const scale = contentWidth / naturalTotal;
 
-    if (effectiveAllowUpscale) {
-        if (!shouldFillPartialRow) {
-            scale = Math.min(scale, maxUpscale);
-        }
-    } else {
-        scale = Math.min(scale, 1);
+        return videos.map((video, index) => ({
+            video,
+            width: distributeWidths(
+                naturals.map((natural) => natural * scale),
+                contentWidth,
+            )[index],
+        }));
     }
 
-    const rawWidths = videos.map((video) => rowHeight * aspectRatio(video) * scale);
-    const scaledTotal = naturalTotal * scale;
-    const targetWidth = effectiveAllowUpscale
-        ? Math.min(contentWidth, Math.floor(scaledTotal))
-        : Math.min(contentWidth, Math.floor(scaledTotal));
-    const widths = distributeWidths(rawWidths, targetWidth);
+    if (!effectiveAllowUpscale) {
+        const widths = distributeWidths(naturals, Math.min(contentWidth, Math.floor(naturalTotal)));
+
+        return videos.map((video, index) => ({
+            video,
+            width: widths[index],
+        }));
+    }
+
+    if (shouldFillPartialRow) {
+        const scale = contentWidth / naturalTotal;
+        const widths = distributeWidths(
+            naturals.map((natural) => natural * scale),
+            contentWidth,
+        );
+
+        return videos.map((video, index) => ({
+            video,
+            width: widths[index],
+        }));
+    }
+
+    const caps = naturals.map((natural) => natural * maxUpscale);
+    const maxTotal = caps.reduce((sum, width) => sum + width, 0);
+    const targetTotal = Math.min(contentWidth, Math.floor(maxTotal));
+    const widths = distributeWithCaps(naturals, caps, targetTotal);
 
     return videos.map((video, index) => ({
         video,
