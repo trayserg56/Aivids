@@ -24,6 +24,17 @@ docker exec aivids_app npm install --legacy-peer-deps && npm run build
 - **Админка:** http://localhost:8091/admin (`admin@aivids.local` / `password`)
 - **Vite dev:** `docker compose --profile dev up node` → порт **5175**
 
+## Yandex SmartCaptcha (форма заявок)
+
+В `.env` backend:
+
+```env
+YANDEX_SMARTCAPTCHA_CLIENT_KEY=ysc1_...
+YANDEX_SMARTCAPTCHA_SERVER_KEY=ysc2_...
+```
+
+Если на основном домене (`saittikhonova.ru`) капча уже настроена — **отдельная для поддомена не нужна**: в списке разрешённых сайтов достаточно базового домена, поддомены (`aivids.saittikhonova.ru`) работают с **теми же ключами**. Без ключей капча отключена (удобно для локальной разработки).
+
 ## Порты
 
 Используем **8091** (web) и **5175** (Vite), чтобы не конфликтовать с другими проектами (8080, 8088, 8090, 5173, 5174).

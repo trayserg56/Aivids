@@ -74,6 +74,27 @@ services:
     networks:
       - aivids
 
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: aivids_queue
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - ./Videos:/var/www/Videos:ro
+    environment:
+      VIDEOS_SOURCE_PATH: /var/www/Videos
+    networks:
+      - aivids
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: php artisan queue:work redis --sleep=3 --tries=1 --timeout=3700
+
 networks:
   aivids:
     driver: bridge

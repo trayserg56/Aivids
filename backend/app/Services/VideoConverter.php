@@ -20,15 +20,17 @@ class VideoConverter
     }
 
     /**
+     * @param  callable(int $progress, string $step): void|null  $onProgress
      * @return array{video_path: string, preview_path: string, poster_path: string, file_size_bytes: int, width: int, height: int}
      */
-    public function convert(string $inputPath, string $slug): array
+    public function convert(string $inputPath, string $slug, ?callable $onProgress = null): array
     {
         if (! is_file($inputPath)) {
             throw new RuntimeException("Source file not found: {$inputPath}");
         }
 
         [$width, $height] = $this->probeDimensions($inputPath);
+        $duration = $this->probeDuration($inputPath);
 
         $disk = Storage::disk('public');
         $disk->makeDirectory('videos');
@@ -42,23 +44,31 @@ class VideoConverter
         $previewAbsolute = $disk->path($previewRelative);
         $posterAbsolute = $disk->path($posterRelative);
 
-        $this->runFfmpeg([
+        if ($onProgress) {
+            $onProgress(2, 'Основное видео');
+        }
+
+        $this->runFfmpegWithProgress([
             'ffmpeg', '-y', '-i', $inputPath,
             '-vf', "scale='min(1920,iw)':'-2'",
             '-c:v', 'libx264', '-crf', '28', '-preset', 'medium',
             '-movflags', '+faststart',
             '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
             $videoAbsolute,
-        ], 'main video');
+        ], 'Основное видео', 5, 72, $duration, $onProgress);
 
-        $this->runFfmpeg([
+        $this->runFfmpegWithProgress([
             'ffmpeg', '-y', '-i', $inputPath,
             '-vf', "scale='min(854,iw)':'-2'",
             '-c:v', 'libx264', '-crf', '32', '-preset', 'fast',
             '-movflags', '+faststart',
             '-an',
             $previewAbsolute,
-        ], 'preview video');
+        ], 'Превью', 72, 90, $duration, $onProgress);
+
+        if ($onProgress) {
+            $onProgress(92, 'Постер');
+        }
 
         $this->runFfmpeg([
             'ffmpeg', '-y', '-ss', '00:00:01', '-i', $inputPath,
@@ -67,6 +77,10 @@ class VideoConverter
             '-c:v', 'libwebp', '-quality', '80',
             $posterAbsolute,
         ], 'poster');
+
+        if ($onProgress) {
+            $onProgress(100, 'Готово');
+        }
 
         return [
             'video_path' => $videoRelative,
@@ -103,6 +117,23 @@ class VideoConverter
         return [1920, 1080];
     }
 
+    public function probeDuration(string $path): float
+    {
+        $result = Process::timeout(60)->run([
+            'ffprobe',
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'csv=p=0',
+            $path,
+        ]);
+
+        if (! $result->successful()) {
+            return 0.0;
+        }
+
+        return max(0.0, (float) trim($result->output()));
+    }
+
     public function titleFromFilename(string $filename): string
     {
         $name = pathinfo($filename, PATHINFO_FILENAME);
@@ -113,6 +144,73 @@ class VideoConverter
     public function slugFromFilename(string $filename): string
     {
         return Str::slug(pathinfo($filename, PATHINFO_FILENAME));
+    }
+
+    /** @param  callable(int $progress, string $step): void|null  $onProgress */
+    private function runFfmpegWithProgress(
+        array $command,
+        string $stepLabel,
+        int $rangeStart,
+        int $rangeEnd,
+        float $sourceDuration,
+        ?callable $onProgress,
+    ): void {
+        $outputFile = array_pop($command);
+        $command[] = '-progress';
+        $command[] = 'pipe:1';
+        $command[] = '-nostats';
+        $command[] = $outputFile;
+
+        $lastReported = -1;
+
+        $result = Process::timeout(3600)->run($command, function (string $type, string $buffer) use (
+            $onProgress,
+            $stepLabel,
+            $rangeStart,
+            $rangeEnd,
+            $sourceDuration,
+            &$lastReported,
+        ): void {
+            if ($onProgress === null) {
+                return;
+            }
+
+            foreach (explode("\n", $buffer) as $line) {
+                if (! str_starts_with($line, 'out_time_us=')) {
+                    continue;
+                }
+
+                $microseconds = (int) substr($line, strlen('out_time_us='));
+
+                if ($sourceDuration <= 0) {
+                    continue;
+                }
+
+                $ratio = min(1.0, ($microseconds / 1_000_000) / $sourceDuration);
+                $progress = (int) round($rangeStart + ($rangeEnd - $rangeStart) * $ratio);
+
+                if ($progress <= $lastReported) {
+                    continue;
+                }
+
+                $lastReported = $progress;
+                $onProgress($progress, $stepLabel);
+            }
+        });
+
+        if (! $result->successful()) {
+            Log::error('ffmpeg failed', [
+                'step' => $stepLabel,
+                'command' => implode(' ', $command),
+                'output' => $result->errorOutput(),
+            ]);
+
+            throw new RuntimeException("ffmpeg failed while creating {$stepLabel}");
+        }
+
+        if ($onProgress) {
+            $onProgress($rangeEnd, $stepLabel);
+        }
     }
 
     private function runFfmpeg(array $command, string $label): void

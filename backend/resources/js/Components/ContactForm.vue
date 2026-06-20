@@ -1,7 +1,8 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
+import { computed, onMounted, ref } from 'vue';
 import { useContactModal } from '@/composables/useContactModal';
+import { loadYandexSmartCaptchaScript, readSmartCaptchaToken } from '@/composables/useYandexSmartCaptcha';
 import { formatPhoneInput, isValidPhone, normalizePhone, PHONE_ERROR } from '@/utils/phone';
 
 const props = defineProps({
@@ -10,7 +11,13 @@ const props = defineProps({
     sourceLabel: { type: String, default: null },
 });
 
+const page = usePage();
 const { context } = useContactModal();
+
+const captchaClientKey = computed(() => page.props.captcha?.yandex_client_key ?? null);
+const captchaEnabled = computed(() => Boolean(captchaClientKey.value));
+const captchaContainer = ref(null);
+const captchaLoadError = ref(false);
 
 const successText = 'Заявка отправлена! Мы свяжемся с вами в ближайшее время.';
 
@@ -21,6 +28,7 @@ const form = useForm({
     message: '',
     source_section: '',
     source_label: '',
+    smart_token: '',
 });
 
 const submitted = ref(false);
@@ -79,6 +87,36 @@ function handlePhoneBlur() {
     validatePhone();
 }
 
+onMounted(async () => {
+    if (!captchaEnabled.value) {
+        return;
+    }
+
+    try {
+        await loadYandexSmartCaptchaScript();
+    } catch {
+        captchaLoadError.value = true;
+    }
+});
+
+function validateCaptcha() {
+    if (!captchaEnabled.value) {
+        return true;
+    }
+
+    const token = readSmartCaptchaToken(captchaContainer.value);
+
+    if (!token) {
+        form.setError('smart_token', 'Подтвердите, что вы не робот.');
+
+        return false;
+    }
+
+    form.clearErrors('smart_token');
+
+    return true;
+}
+
 function submit() {
     phoneTouched.value = true;
 
@@ -96,7 +134,12 @@ function submit() {
         return;
     }
 
+    if (!validateCaptcha()) {
+        return;
+    }
+
     const source = resolveSource();
+    const smartToken = readSmartCaptchaToken(captchaContainer.value);
 
     form
         .transform((data) => ({
@@ -105,6 +148,7 @@ function submit() {
             message: data.message?.trim() ?? '',
             source_section: source.source_section || null,
             source_label: source.source_label || null,
+            smart_token: smartToken || null,
         }))
         .post('/contact', {
             preserveScroll: true,
@@ -189,7 +233,23 @@ defineExpose({ reset });
             <p v-if="form.errors.message" class="mt-1 text-sm text-red-400">{{ form.errors.message }}</p>
         </div>
 
-        <button type="submit" class="btn-primary w-full" :disabled="form.processing">
+        <div v-if="captchaEnabled" class="space-y-2">
+            <div
+                ref="captchaContainer"
+                :id="`${fieldIdPrefix}-captcha`"
+                class="smart-captcha overflow-hidden rounded-xl"
+                :data-sitekey="captchaClientKey"
+                style="height: 100px"
+            />
+            <p v-if="captchaLoadError" class="text-sm text-red-400">
+                Не удалось загрузить капчу. Обновите страницу или попробуйте позже.
+            </p>
+            <p v-else-if="form.errors.smart_token" class="text-sm text-red-400">
+                {{ form.errors.smart_token }}
+            </p>
+        </div>
+
+        <button type="submit" class="btn-primary w-full" :disabled="form.processing || captchaLoadError">
             {{ form.processing ? 'Отправляем...' : 'Отправить заявку' }}
         </button>
     </form>

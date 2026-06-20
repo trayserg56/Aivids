@@ -23,7 +23,7 @@ class VideoUploadProcessorTest extends TestCase
         $converter = Mockery::mock(VideoConverter::class);
         $converter->shouldReceive('convert')
             ->once()
-            ->with('/tmp/source.mov', 'test-case')
+            ->with('/tmp/source.mov', 'test-case', null)
             ->andReturn([
                 'video_path' => 'videos/test-case.mp4',
                 'preview_path' => 'videos/test-case-preview.mp4',

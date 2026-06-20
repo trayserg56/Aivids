@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\YandexSmartCaptchaValidator;
 use App\Support\PhoneValidator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -35,6 +36,7 @@ class StoreContactRequest extends FormRequest
             'message' => ['nullable', 'string', 'max:5000'],
             'source_section' => ['nullable', 'string', 'max:50'],
             'source_label' => ['nullable', 'string', 'max:255'],
+            'smart_token' => ['nullable', 'string', 'max:2048'],
         ];
     }
 
@@ -47,6 +49,15 @@ class StoreContactRequest extends FormRequest
                 $validator->errors()->add(
                     'phone',
                     'Укажите корректный номер телефона в формате +7 XXX XXX-XX-XX.',
+                );
+            }
+
+            $captcha = app(YandexSmartCaptchaValidator::class);
+
+            if ($captcha->isEnabled() && ! $captcha->verify($this->input('smart_token'), $this->ip())) {
+                $validator->errors()->add(
+                    'smart_token',
+                    'Подтвердите, что вы не робот.',
                 );
             }
         });

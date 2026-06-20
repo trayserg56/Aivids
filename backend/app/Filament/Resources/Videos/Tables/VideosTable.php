@@ -8,6 +8,7 @@ use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
@@ -18,6 +19,7 @@ class VideosTable
         return $table
             ->defaultSort('sort_order')
             ->reorderable('sort_order')
+            ->poll('3s')
             ->columns([
                 ImageColumn::make('poster_path')
                     ->label('Постер')
@@ -29,6 +31,9 @@ class VideosTable
                     ->searchable()
                     ->sortable()
                     ->wrap(),
+                ViewColumn::make('conversion_progress')
+                    ->label('Обработка')
+                    ->view('filament.tables.columns.video-conversion-progress'),
                 TextColumn::make('categories')
                     ->label('Категории')
                     ->badge()

@@ -32,5 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="YANDEX_SMARTCAPTCHA_CLIENT_KEY" value=""/>
+        <env name="YANDEX_SMARTCAPTCHA_SERVER_KEY" value=""/>
     </php>
 </phpunit>

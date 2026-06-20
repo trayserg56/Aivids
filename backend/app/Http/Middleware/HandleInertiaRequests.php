@@ -25,6 +25,9 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
             ],
+            'captcha' => [
+                'yandex_client_key' => config('captcha.yandex.client_key'),
+            ],
         ];
     }
 }

@@ -2,10 +2,10 @@
 
 namespace App\Filament\Resources\Videos\Concerns;
 
+use App\Jobs\ConvertVideoJob;
 use App\Models\Video;
 use App\Services\VideoUploadProcessor;
 use Filament\Notifications\Notification;
-use Throwable;
 
 trait ProcessesVideoUpload
 {
@@ -19,32 +19,25 @@ trait ProcessesVideoUpload
 
         $processor = app(VideoUploadProcessor::class);
         $absolutePath = $processor->resolvePublicPath($source);
+        $relativePath = $processor->resolvePublicRelativePath($source);
 
         if ($absolutePath === null || ! is_file($absolutePath)) {
             return;
         }
 
-        try {
-            $processor->applyConversion(
-                $video,
-                $absolutePath,
-                basename(is_array($source) ? $source[0] : $source),
-            );
-            $processor->deletePublicFile($source);
+        $video->markConversionQueued();
 
-            Notification::make()
-                ->title('Видео сконвертировано')
-                ->body('Созданы mp4, превью и постер.')
-                ->success()
-                ->send();
-        } catch (Throwable $exception) {
-            Notification::make()
-                ->title('Ошибка конвертации')
-                ->body($exception->getMessage())
-                ->danger()
-                ->send();
+        ConvertVideoJob::dispatch(
+            $video->id,
+            $absolutePath,
+            basename(is_array($source) ? $source[0] : $source),
+            $relativePath,
+        );
 
-            report($exception);
-        }
+        Notification::make()
+            ->title('Видео в обработке')
+            ->body('Конвертация идёт в фоне. Прогресс — в списке кейсов.')
+            ->success()
+            ->send();
     }
 }

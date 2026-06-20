@@ -28,6 +28,8 @@ class VideoFactory extends Factory
             'sort_order' => fake()->numberBetween(0, 100),
             'is_featured' => false,
             'is_published' => true,
+            'conversion_status' => 'completed',
+            'conversion_progress' => 100,
         ];
     }
 }

@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Support\VideoConversionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Video extends Model
 {
@@ -25,6 +27,9 @@ class Video extends Model
         'sort_order',
         'is_featured',
         'is_published',
+        'conversion_status',
+        'conversion_progress',
+        'conversion_step',
     ];
 
     protected function casts(): array
@@ -74,5 +79,54 @@ class Video extends Model
         }
 
         return null;
+    }
+
+    public function isConverting(): bool
+    {
+        return VideoConversionStatus::isActive($this->conversion_status);
+    }
+
+    public function markConversionQueued(): void
+    {
+        $this->update([
+            'conversion_status' => VideoConversionStatus::Queued,
+            'conversion_progress' => 0,
+            'conversion_step' => 'В очереди',
+        ]);
+    }
+
+    public function markConversionProcessing(string $step = 'Подготовка'): void
+    {
+        $this->update([
+            'conversion_status' => VideoConversionStatus::Processing,
+            'conversion_progress' => 0,
+            'conversion_step' => $step,
+        ]);
+    }
+
+    public function updateConversionProgress(int $progress, string $step): void
+    {
+        $this->update([
+            'conversion_status' => VideoConversionStatus::Processing,
+            'conversion_progress' => max(0, min(100, $progress)),
+            'conversion_step' => $step,
+        ]);
+    }
+
+    public function markConversionCompleted(): void
+    {
+        $this->update([
+            'conversion_status' => VideoConversionStatus::Completed,
+            'conversion_progress' => 100,
+            'conversion_step' => 'Готово',
+        ]);
+    }
+
+    public function markConversionFailed(string $message): void
+    {
+        $this->update([
+            'conversion_status' => VideoConversionStatus::Failed,
+            'conversion_step' => Str::limit($message, 120),
+        ]);
     }
 }

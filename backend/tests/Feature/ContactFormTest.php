@@ -109,4 +109,39 @@ class ContactFormTest extends TestCase
             'phone' => '+7 (999) 123-45-67',
         ]);
     }
+
+    public function test_contact_form_rejects_missing_captcha_when_enabled(): void
+    {
+        config(['captcha.yandex.server_key' => 'ysc2_test']);
+
+        $response = $this->from('/')->post('/contact', [
+            'name' => 'Test User',
+            'phone' => '8 (999) 123-45-67',
+        ]);
+
+        $response->assertSessionHasErrors(['smart_token']);
+        $this->assertSame(0, ContactSubmission::count());
+    }
+
+    public function test_contact_form_accepts_valid_captcha_token(): void
+    {
+        config(['captcha.yandex.server_key' => 'ysc2_test']);
+
+        \Illuminate\Support\Facades\Http::fake([
+            'smartcaptcha.cloud.yandex.ru/validate' => \Illuminate\Support\Facades\Http::response([
+                'status' => 'ok',
+                'message' => '',
+                'host' => 'aivids.saittikhonova.ru',
+            ]),
+        ]);
+
+        $response = $this->post('/contact', [
+            'name' => 'Test User',
+            'phone' => '8 (999) 123-45-67',
+            'smart_token' => 'valid-token',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame(1, ContactSubmission::count());
+    }
 }

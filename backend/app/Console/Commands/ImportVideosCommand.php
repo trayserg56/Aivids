@@ -59,20 +59,13 @@ class ImportVideosCommand extends Command
             $this->info(sprintf('Converting [%d/%d] %s...', $index + 1, $files->count(), $filename));
 
             try {
-                $paths = $converter->convert($file->getPathname(), $slug);
-
-                Video::query()->updateOrCreate(
+                $video = Video::query()->updateOrCreate(
                     ['source_filename' => $filename],
                     [
                         'title' => $converter->titleFromFilename($filename),
                         'slug' => $slug,
                         'description' => null,
-                        'poster_path' => $paths['poster_path'],
-                        'width' => $paths['width'],
-                        'height' => $paths['height'],
-                        'video_path' => $paths['video_path'],
-                        'preview_path' => $paths['preview_path'],
-                        'file_size_bytes' => $paths['file_size_bytes'],
+                        'poster_path' => 'posters/.pending',
                         'categories' => ['Портфолио'],
                         'sort_order' => $index,
                         'is_featured' => $index < $featuredCount,
@@ -80,10 +73,41 @@ class ImportVideosCommand extends Command
                     ],
                 );
 
+                $video->markConversionProcessing('Основное видео');
+
+                $bar = $this->output->createProgressBar(100);
+                $bar->setFormat(' %current%% [%bar%] %message%');
+                $bar->setMessage($filename);
+                $bar->start();
+
+                $paths = $converter->convert($file->getPathname(), $slug, function (int $progress, string $step) use ($video, $bar): void {
+                    $video->updateConversionProgress($progress, $step);
+                    $bar->setProgress($progress);
+                    $bar->setMessage($step);
+                });
+
+                $bar->finish();
+                $this->newLine();
+
+                $video->update([
+                    'poster_path' => $paths['poster_path'],
+                    'width' => $paths['width'],
+                    'height' => $paths['height'],
+                    'video_path' => $paths['video_path'],
+                    'preview_path' => $paths['preview_path'],
+                    'file_size_bytes' => $paths['file_size_bytes'],
+                ]);
+
+                $video->markConversionCompleted();
+
                 $imported++;
                 $sizeMb = round($paths['file_size_bytes'] / 1024 / 1024, 1);
                 $this->line("  ✓ {$slug}.mp4 ({$sizeMb} MB)");
             } catch (\Throwable $e) {
+                if (isset($video)) {
+                    $video->markConversionFailed($e->getMessage());
+                }
+
                 $this->error("  ✗ Failed: {$e->getMessage()}");
             }
         }
