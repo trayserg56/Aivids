@@ -22,5 +22,6 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
+COPY docker/php/zz-aivids-pool.conf /usr/local/etc/php-fpm.d/zz-aivids-pool.conf
 
 RUN addgroup -g 1000 www && adduser -u 1000 -G www -s /bin/sh -D www
