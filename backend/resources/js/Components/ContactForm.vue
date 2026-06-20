@@ -4,9 +4,10 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useContactModal } from '@/composables/useContactModal';
 import {
     destroyYandexSmartCaptcha,
+    executeYandexSmartCaptcha,
     loadYandexSmartCaptchaScript,
-    readYandexSmartCaptchaToken,
     renderYandexSmartCaptcha,
+    resetYandexSmartCaptcha,
 } from '@/composables/useYandexSmartCaptcha';
 import { formatPhoneInput, isValidPhone, normalizePhone, PHONE_ERROR } from '@/utils/phone';
 
@@ -24,6 +25,7 @@ const captchaEnabled = computed(() => Boolean(captchaClientKey.value));
 const captchaContainer = ref(null);
 const captchaLoadError = ref(false);
 const captchaWidgetId = ref(null);
+const captchaVerifying = ref(false);
 
 const successText = 'Заявка отправлена! Мы свяжемся с вами в ближайшее время.';
 
@@ -41,6 +43,7 @@ const submitted = ref(false);
 const phoneTouched = ref(false);
 
 const successMessage = computed(() => (submitted.value ? successText : null));
+const isSubmitting = computed(() => form.processing || captchaVerifying.value);
 
 const phoneInputClass = computed(() => [
     'w-full rounded-xl border bg-bg px-4 py-3 text-white outline-none',
@@ -93,6 +96,34 @@ function handlePhoneBlur() {
     validatePhone();
 }
 
+function onCaptchaToken(token) {
+    captchaVerifying.value = false;
+
+    if (!token) {
+        form.setError('smart_token', 'Не удалось пройти проверку. Попробуйте ещё раз.');
+
+        return;
+    }
+
+    postForm(token);
+}
+
+function subscribeCaptchaEvents(widgetId) {
+    if (!window.smartCaptcha || widgetId == null) {
+        return;
+    }
+
+    window.smartCaptcha.subscribe(widgetId, 'network-error', () => {
+        captchaVerifying.value = false;
+        form.setError('smart_token', 'Ошибка сети при проверке. Попробуйте ещё раз.');
+    });
+
+    window.smartCaptcha.subscribe(widgetId, 'token-expired', () => {
+        captchaVerifying.value = false;
+        resetYandexSmartCaptcha(widgetId);
+    });
+}
+
 onMounted(async () => {
     if (!captchaEnabled.value) {
         return;
@@ -109,7 +140,14 @@ onMounted(async () => {
         captchaWidgetId.value = renderYandexSmartCaptcha(
             captchaContainer.value,
             captchaClientKey.value,
+            {
+                invisible: true,
+                shieldPosition: 'bottom-right',
+                onSuccess: onCaptchaToken,
+            },
         );
+
+        subscribeCaptchaEvents(captchaWidgetId.value);
     } catch {
         captchaLoadError.value = true;
     }
@@ -120,22 +158,30 @@ onUnmounted(() => {
     captchaWidgetId.value = null;
 });
 
-function validateCaptcha() {
-    if (!captchaEnabled.value) {
-        return true;
-    }
+function postForm(smartToken) {
+    const source = resolveSource();
 
-    const token = readYandexSmartCaptchaToken(captchaWidgetId.value);
-
-    if (!token) {
-        form.setError('smart_token', 'Подтвердите, что вы не робот.');
-
-        return false;
-    }
-
-    form.clearErrors('smart_token');
-
-    return true;
+    form
+        .transform((data) => ({
+            ...data,
+            phone: normalizePhone(data.phone),
+            message: data.message?.trim() ?? '',
+            source_section: source.source_section || null,
+            source_label: source.source_label || null,
+            smart_token: smartToken || null,
+        }))
+        .post('/contact', {
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset();
+                phoneTouched.value = false;
+                submitted.value = true;
+                resetYandexSmartCaptcha(captchaWidgetId.value);
+            },
+            onError: () => {
+                resetYandexSmartCaptcha(captchaWidgetId.value);
+            },
+        });
 }
 
 function submit() {
@@ -155,30 +201,22 @@ function submit() {
         return;
     }
 
-    if (!validateCaptcha()) {
+    form.clearErrors('smart_token');
+
+    if (!captchaEnabled.value) {
+        postForm(null);
+
         return;
     }
 
-    const source = resolveSource();
-    const smartToken = readYandexSmartCaptchaToken(captchaWidgetId.value);
+    if (captchaLoadError.value || captchaWidgetId.value == null) {
+        form.setError('smart_token', 'Проверка недоступна. Обновите страницу.');
 
-    form
-        .transform((data) => ({
-            ...data,
-            phone: normalizePhone(data.phone),
-            message: data.message?.trim() ?? '',
-            source_section: source.source_section || null,
-            source_label: source.source_label || null,
-            smart_token: smartToken || null,
-        }))
-        .post('/contact', {
-            preserveScroll: true,
-            onSuccess: () => {
-                form.reset();
-                phoneTouched.value = false;
-                submitted.value = true;
-            },
-        });
+        return;
+    }
+
+    captchaVerifying.value = true;
+    executeYandexSmartCaptcha(captchaWidgetId.value);
 }
 
 function reset() {
@@ -186,6 +224,8 @@ function reset() {
     form.clearErrors();
     phoneTouched.value = false;
     submitted.value = false;
+    captchaVerifying.value = false;
+    resetYandexSmartCaptcha(captchaWidgetId.value);
 }
 
 defineExpose({ reset });
@@ -254,23 +294,19 @@ defineExpose({ reset });
             <p v-if="form.errors.message" class="mt-1 text-sm text-red-400">{{ form.errors.message }}</p>
         </div>
 
-        <div v-if="captchaEnabled" class="space-y-2">
-            <div
-                ref="captchaContainer"
-                :id="`${fieldIdPrefix}-captcha`"
-                class="overflow-hidden rounded-xl"
-                style="min-height: 100px"
-            />
-            <p v-if="captchaLoadError" class="text-sm text-red-400">
-                Не удалось загрузить капчу. Обновите страницу или попробуйте позже.
-            </p>
-            <p v-else-if="form.errors.smart_token" class="text-sm text-red-400">
-                {{ form.errors.smart_token }}
-            </p>
+        <div v-if="captchaEnabled" class="sr-only" aria-hidden="true">
+            <div ref="captchaContainer" :id="`${fieldIdPrefix}-captcha`" />
         </div>
 
-        <button type="submit" class="btn-primary w-full" :disabled="form.processing || captchaLoadError">
-            {{ form.processing ? 'Отправляем...' : 'Отправить заявку' }}
+        <p v-if="captchaLoadError" class="text-sm text-red-400">
+            Не удалось загрузить проверку. Обновите страницу или попробуйте позже.
+        </p>
+        <p v-else-if="form.errors.smart_token" class="text-sm text-red-400">
+            {{ form.errors.smart_token }}
+        </p>
+
+        <button type="submit" class="btn-primary w-full" :disabled="isSubmitting || captchaLoadError">
+            {{ isSubmitting ? 'Отправляем...' : 'Отправить заявку' }}
         </button>
     </form>
 </template>

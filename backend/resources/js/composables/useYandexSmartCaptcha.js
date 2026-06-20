@@ -31,19 +31,39 @@ export function loadYandexSmartCaptchaScript() {
     return scriptPromise;
 }
 
-export function renderYandexSmartCaptcha(container, sitekey, { invisible = false, onSuccess } = {}) {
+export function renderYandexSmartCaptcha(container, sitekey, { invisible = false, onSuccess, shieldPosition } = {}) {
     if (!window.smartCaptcha || !container || !sitekey) {
         return null;
     }
 
     container.replaceChildren();
 
-    return window.smartCaptcha.render(container, {
+    const params = {
         sitekey,
         hl: 'ru',
         invisible,
         callback: (token) => onSuccess?.(token),
-    });
+    };
+
+    if (shieldPosition) {
+        params.shieldPosition = shieldPosition;
+    }
+
+    return window.smartCaptcha.render(container, params);
+}
+
+export function executeYandexSmartCaptcha(widgetId) {
+    if (widgetId == null) {
+        return;
+    }
+
+    window.smartCaptcha?.execute(widgetId);
+}
+
+export function resetYandexSmartCaptcha(widgetId) {
+    if (widgetId != null) {
+        window.smartCaptcha?.reset(widgetId);
+    }
 }
 
 export function destroyYandexSmartCaptcha(widgetId) {
