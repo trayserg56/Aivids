@@ -4,6 +4,7 @@ import VideoCard from './VideoCard.vue';
 import {
     buildJustifiedRows,
     selectVideosForFilledRows,
+    orderPoolForPreview,
     getLayoutOptions,
     rowContentWidth,
 } from '@/composables/useJustifiedGallery';
@@ -55,7 +56,7 @@ const layoutOptions = computed(() =>
 const items = computed(() => {
     if (props.targetRows && containerWidth.value > 0) {
         return selectVideosForFilledRows(
-            pool.value,
+            orderPoolForPreview(pool.value),
             containerWidth.value,
             props.rowHeight,
             props.gap,
@@ -83,12 +84,10 @@ const rowLayouts = computed(() =>
     rows.value.map((row) => {
         const total = rowContentWidth(row, props.gap);
         const fillsWidth = total >= containerWidth.value * 0.98;
-        const useSpaceBetween =
-            props.targetRows && !layoutOptions.value.fillPartialRows && !fillsWidth;
 
         return {
             row,
-            justifyContent: useSpaceBetween ? 'space-between' : 'flex-start',
+            justifyContent: fillsWidth ? 'flex-start' : 'center',
         };
     }),
 );

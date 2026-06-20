@@ -95,6 +95,21 @@ export function buildJustifiedRows(
  *
  * @returns {Array<object>}
  */
+export function orderPoolForPreview(videos) {
+    const portraits = [];
+    const others = [];
+
+    for (const video of videos) {
+        if (aspectCategory(video) === 'portrait') {
+            portraits.push(video);
+        } else {
+            others.push(video);
+        }
+    }
+
+    return [...portraits, ...others];
+}
+
 export function selectVideosForFilledRows(
     videos,
     containerWidth,
@@ -106,6 +121,18 @@ export function selectVideosForFilledRows(
 ) {
     if (!videos.length || containerWidth <= 0) {
         return [];
+    }
+
+    if (layoutOptions.splitByAspect) {
+        return selectVideosForSplitPreview(
+            videos,
+            containerWidth,
+            rowHeight,
+            gap,
+            maxItemsPerRow,
+            targetRows,
+            layoutOptions,
+        );
     }
 
     let selected = [videos[0]];
@@ -143,6 +170,71 @@ export function selectVideosForFilledRows(
         }
 
         if (rowsAreBalanced(rows, containerWidth, gap, layoutOptions)) {
+            break;
+        }
+    }
+
+    return selected;
+}
+
+function selectVideosForSplitPreview(
+    videos,
+    containerWidth,
+    rowHeight,
+    gap,
+    maxItemsPerRow,
+    targetRows,
+    layoutOptions,
+) {
+    const portraits = videos.filter((video) => aspectCategory(video) === 'portrait');
+    const others = videos.filter((video) => aspectCategory(video) !== 'portrait');
+
+    let selected = [];
+
+    for (const video of portraits) {
+        const candidate = [...selected, video];
+        const rows = buildJustifiedRows(
+            candidate,
+            containerWidth,
+            rowHeight,
+            gap,
+            maxItemsPerRow,
+            layoutOptions,
+        );
+
+        if (rows.length > 1) {
+            break;
+        }
+
+        selected = candidate;
+
+        if (rowsAreBalanced(rows, containerWidth, gap, layoutOptions)) {
+            break;
+        }
+    }
+
+    if (!selected.length && videos.length) {
+        selected = [videos[0]];
+    }
+
+    for (const video of others) {
+        const candidate = [...selected, video];
+        const rows = buildJustifiedRows(
+            candidate,
+            containerWidth,
+            rowHeight,
+            gap,
+            maxItemsPerRow,
+            layoutOptions,
+        );
+
+        if (rows.length > targetRows) {
+            break;
+        }
+
+        selected = candidate;
+
+        if (rows.length === targetRows && rowsAreBalanced(rows, containerWidth, gap, layoutOptions)) {
             break;
         }
     }
@@ -255,10 +347,17 @@ export function rowsAreBalanced(rows, containerWidth, gap, layoutOptions = {}, m
         return rows.every((row) => row.length <= 2 || rowContentWidth(row, gap) >= containerWidth * minFillRatio);
     }
 
+    const requiresFill = layoutOptions.maxUpscale !== undefined
+        && layoutOptions.maxUpscale < Infinity;
+
     return rows.every((row) => {
         const width = rowContentWidth(row, gap);
 
-        return width >= containerWidth * minFillRatio || row.length >= 3;
+        if (width >= containerWidth * minFillRatio) {
+            return true;
+        }
+
+        return !requiresFill && row.length >= 3;
     });
 }
 

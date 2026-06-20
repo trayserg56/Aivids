@@ -5,6 +5,7 @@ import {
     PREVIEW_LAYOUT_OPTIONS,
     FULL_LAYOUT_OPTIONS,
     MOBILE_LAYOUT_OPTIONS,
+    orderPoolForPreview,
     rowContentWidth,
 } from '@/composables/useJustifiedGallery';
 
@@ -162,6 +163,41 @@ describe('buildJustifiedRows', () => {
                 expect(cell.width).toBeLessThanOrEqual(Math.ceil(naturalWidth * PREVIEW_LAYOUT_OPTIONS.maxUpscale));
             }
         }
+    });
+
+    it('keeps selecting preview videos until capped rows fill the container', () => {
+        const portraits = Array.from({ length: 10 }, (_, index) => ({
+            id: index + 1,
+            width: 1080,
+            height: 1920,
+        }));
+        const landscapes = [
+            { id: 11, width: 1920, height: 1080 },
+            { id: 12, width: 1920, height: 1080 },
+            { id: 13, width: 1920, height: 1080 },
+        ];
+
+        const selected = selectVideosForFilledRows(
+            orderPoolForPreview([...portraits, ...landscapes]),
+            1200,
+            280,
+            12,
+            Infinity,
+            2,
+            PREVIEW_LAYOUT_OPTIONS,
+        );
+        const rows = buildJustifiedRows(
+            selected,
+            1200,
+            280,
+            12,
+            Infinity,
+            PREVIEW_LAYOUT_OPTIONS,
+        );
+
+        expect(rows).toHaveLength(2);
+        expect(rowContentWidth(rows[0], 12)).toBeGreaterThanOrEqual(1080);
+        expect(rowContentWidth(rows[1], 12)).toBeGreaterThanOrEqual(1080);
     });
 
     it('adds more videos until the second preview row is populated', () => {
