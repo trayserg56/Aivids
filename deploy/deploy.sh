@@ -37,4 +37,8 @@ docker compose exec -T app php artisan route:cache
 docker compose exec -T app php artisan view:cache
 docker compose exec -T app php artisan filament:optimize
 
+echo "==> Restart queue worker (pick up fresh config)"
+docker compose exec -T app php artisan queue:restart
+docker compose restart queue
+
 echo "==> Deploy complete: https://aivids.saittikhonova.ru"
