@@ -6,7 +6,6 @@ defineProps({
     videos: { type: Array, required: true },
     title: { type: String, default: 'Примеры наших роликов' },
     subtitle: { type: String, default: '' },
-    previewLimit: { type: Number, default: 6 },
 });
 </script>
 
@@ -21,7 +20,7 @@ defineProps({
             <div class="relative">
                 <JustifiedVideoStrip
                     :videos="videos"
-                    :limit="previewLimit"
+                    :target-rows="2"
                     :row-height="280"
                     :gap="12"
                 />

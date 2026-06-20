@@ -58,7 +58,7 @@ class HomeController extends Controller
                 ])
                 ->all(),
             'featuredVideos' => $latestVideos(8),
-            'videos' => $latestVideos(6),
+            'videos' => $latestVideos(20),
             'benefitsSection' => SiteSetting::get('benefits', [
                 'title' => 'Преимущества ИИ видеопроизводства',
                 'subtitle' => 'Видео создаётся без студии, актёров и сложной организации съёмок.',

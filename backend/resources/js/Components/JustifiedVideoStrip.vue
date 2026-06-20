@@ -1,23 +1,21 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import VideoCard from './VideoCard.vue';
-import { buildJustifiedRows } from '@/composables/useJustifiedGallery';
+import { buildJustifiedRows, selectVideosForFilledRows } from '@/composables/useJustifiedGallery';
 
 const props = defineProps({
     videos: { type: Array, required: true },
     rowHeight: { type: Number, default: 280 },
     gap: { type: Number, default: 12 },
     limit: { type: Number, default: null },
+    targetRows: { type: Number, default: null },
+    poolLimit: { type: Number, default: 20 },
     class: { type: String, default: '' },
     maxItemsPerRow: { type: Number, default: null },
 });
 
 const containerRef = ref(null);
 const containerWidth = ref(0);
-
-const items = computed(() =>
-    props.limit ? props.videos.slice(0, props.limit) : props.videos,
-);
 
 const effectiveMaxItemsPerRow = computed(() => {
     if (props.maxItemsPerRow) {
@@ -35,6 +33,31 @@ const effectiveMaxItemsPerRow = computed(() => {
     return Infinity;
 });
 
+const pool = computed(() => {
+    const source = props.poolLimit ? props.videos.slice(0, props.poolLimit) : props.videos;
+
+    if (props.limit) {
+        return source.slice(0, props.limit);
+    }
+
+    return source;
+});
+
+const items = computed(() => {
+    if (props.targetRows && containerWidth.value > 0) {
+        return selectVideosForFilledRows(
+            pool.value,
+            containerWidth.value,
+            props.rowHeight,
+            props.gap,
+            effectiveMaxItemsPerRow.value,
+            props.targetRows,
+        );
+    }
+
+    return pool.value;
+});
+
 const rows = computed(() =>
     buildJustifiedRows(
         items.value,
@@ -42,6 +65,7 @@ const rows = computed(() =>
         props.rowHeight,
         props.gap,
         effectiveMaxItemsPerRow.value,
+        props.targetRows ? { fillLastRow: true } : {},
     ),
 );
 

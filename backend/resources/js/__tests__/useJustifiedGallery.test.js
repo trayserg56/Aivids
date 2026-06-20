@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildJustifiedRows } from '@/composables/useJustifiedGallery';
+import { buildJustifiedRows, selectVideosForFilledRows } from '@/composables/useJustifiedGallery';
 
 describe('buildJustifiedRows', () => {
     const videos = [
@@ -56,5 +56,42 @@ describe('buildJustifiedRows', () => {
         );
 
         expect(rows[0][0].width).toBe(Math.floor(220 * (1080 / 1920)));
+    });
+
+    it('fills the last row when fillLastRow is enabled', () => {
+        const rows = buildJustifiedRows(
+            [{ id: 1, width: 1080, height: 1920 }],
+            360,
+            220,
+            12,
+            Infinity,
+            { fillLastRow: true },
+        );
+
+        expect(rows[0][0].width).toBe(360);
+    });
+
+    it('adds more videos until the second preview row is populated', () => {
+        const videos = [
+            { id: 1, width: 1080, height: 1920 },
+            { id: 2, width: 1080, height: 1920 },
+            { id: 3, width: 1080, height: 1920 },
+            { id: 4, width: 1080, height: 1920 },
+            { id: 5, width: 1080, height: 1920 },
+            { id: 6, width: 1920, height: 1080 },
+            { id: 7, width: 1080, height: 1920 },
+            { id: 8, width: 1080, height: 1920 },
+        ];
+
+        const selected = selectVideosForFilledRows(videos, 1200, 280, 12, Infinity, 2);
+        const rows = buildJustifiedRows(selected, 1200, 280, 12, Infinity, { fillLastRow: true });
+
+        expect(rows).toHaveLength(2);
+        expect(selected.length).toBeGreaterThan(6);
+
+        const secondRowWidth =
+            rows[1].reduce((sum, cell) => sum + cell.width, 0) + 12 * (rows[1].length - 1);
+
+        expect(secondRowWidth).toBe(1200);
     });
 });
