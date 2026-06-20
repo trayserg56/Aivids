@@ -1,0 +1,98 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test & build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci --legacy-peer-deps
+
+      - name: Run frontend tests
+        working-directory: backend
+        run: npm test
+
+      - name: Build assets
+        working-directory: backend
+        run: npm run build
+
+      - name: Upload Vite build
+        uses: actions/upload-artifact@v4
+        with:
+          name: vite-build
+          path: backend/public/build/
+          retention-days: 7
+
+  deploy:
+    name: Deploy to production
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Vite build
+        uses: actions/download-artifact@v4
+        with:
+          name: vite-build
+          path: backend/public/build
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known hosts
+        run: ssh-keyscan -H "${SERVER_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Rsync application
+        run: |
+          USER="${SERVER_USER:-root}"
+          PATH_ON_SERVER="${DEPLOY_PATH:-/var/www/aivids}"
+          TARGET="${USER}@${SERVER_HOST}:${PATH_ON_SERVER}/"
+
+          rsync -avz --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.env' \
+            --exclude 'backend/.env' \
+            --exclude 'backend/node_modules/' \
+            --exclude 'backend/vendor/' \
+            --exclude 'backend/storage/' \
+            --exclude 'Videos/' \
+            --exclude 'tmp-benefits-ref.mov' \
+            --exclude '.DS_Store' \
+            ./ "${TARGET}"
+
+      - name: Run server deploy script
+        run: |
+          USER="${SERVER_USER:-root}"
+          PATH_ON_SERVER="${DEPLOY_PATH:-/var/www/aivids}"
+          ssh -o StrictHostKeyChecking=no \
+            "${USER}@${SERVER_HOST}" \
+            "bash ${PATH_ON_SERVER}/deploy/deploy.sh"

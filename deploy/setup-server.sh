@@ -81,11 +81,14 @@ docker compose exec -T app php artisan migrate --force --no-interaction
 docker compose exec -T app php artisan db:seed --force --no-interaction
 docker compose exec -T app php artisan storage:link --force
 
-docker run --rm \
-  -v "${APP_DIR}/backend:/app" \
-  -w /app \
-  node:22-alpine \
-  sh -c "npm ci --legacy-peer-deps && npm run build"
+# Frontend is built in GitHub Actions — see deploy/deploy.sh for routine deploys.
+if [[ "${SKIP_FRONTEND_BUILD:-0}" != "1" ]]; then
+  docker run --rm \
+    -v "${APP_DIR}/backend:/app" \
+    -w /app \
+    node:22-alpine \
+    sh -c "npm ci --legacy-peer-deps && npm run build"
+fi
 
 docker compose exec -T app php artisan config:cache
 docker compose exec -T app php artisan route:cache

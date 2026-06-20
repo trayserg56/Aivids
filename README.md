@@ -81,6 +81,12 @@ docker run --rm -v $(pwd)/backend:/app -w /app node:22-alpine npm test
 - `aivids-laravel` — бэкенд и Filament
 - `aivids-devops` — Docker, порты, деплой
 
+## Деплой (CI/CD)
+
+Push в `main` → GitHub Actions собирает фронт и деплоит на https://aivids.saittikhonova.ru
+
+Настройка секретов: [deploy/GITHUB_ACTIONS.md](deploy/GITHUB_ACTIONS.md)
+
 ---
 
 ## Идеи (backlog)
