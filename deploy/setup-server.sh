@@ -73,6 +73,9 @@ set +a
 
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
+docker compose exec -T app chown -R www-data:www-data storage bootstrap/cache
+docker compose exec -T app chmod -R 775 storage bootstrap/cache
+
 docker compose exec -T app composer install --no-dev --optimize-autoloader --no-interaction
 docker compose exec -T app php artisan migrate --force --no-interaction
 docker compose exec -T app php artisan db:seed --force --no-interaction
