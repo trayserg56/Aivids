@@ -47,7 +47,7 @@
     }
 
     .section-block {
-        @apply py-12 sm:py-16 lg:py-28;
+        @apply py-12 sm:py-16 lg:py-14;
     }
 
     .card-dark {

@@ -16,7 +16,7 @@ function toggle(id) {
 <template>
     <section id="faq" class="section-block">
         <div class="container-site max-w-3xl">
-            <h2 class="section-title mb-8 text-center sm:mb-12">{{ section.title }}</h2>
+            <h2 class="section-title mb-8 text-center sm:mb-12 lg:mb-6">{{ section.title }}</h2>
 
             <div class="space-y-3">
                 <article

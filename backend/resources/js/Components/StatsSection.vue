@@ -8,7 +8,7 @@ defineProps({
 <template>
     <section class="section-block">
         <div class="container-site">
-            <h2 class="section-title mb-8 text-center sm:mb-12">{{ section.title }}</h2>
+            <h2 class="section-title mb-8 text-center sm:mb-12 lg:mb-6">{{ section.title }}</h2>
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div
                     v-for="stat in stats"

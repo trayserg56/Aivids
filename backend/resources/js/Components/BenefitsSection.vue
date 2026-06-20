@@ -67,7 +67,7 @@ onBeforeUnmount(() => {
                         v-for="(item, index) in benefits"
                         :key="item.id"
                         :data-benefit-id="item.id"
-                        class="py-12 first:pt-0 last:pb-0 lg:py-16"
+                        class="py-12 first:pt-0 last:pb-0 lg:py-8"
                     >
                         <h3 class="flex items-start gap-3 text-xl font-semibold leading-snug text-white lg:text-2xl">
                             <span class="mt-2.5 h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />

@@ -19,7 +19,7 @@ function scroll(direction) {
 <template>
     <section id="services" class="section-block">
         <div class="container-site">
-            <div class="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+            <div class="mb-8 flex flex-col gap-4 sm:mb-10 lg:mb-5 sm:flex-row sm:items-end sm:justify-between">
                 <h2 class="section-title max-w-xl">Услуги ИИ-видеопродакшна</h2>
                 <div class="flex shrink-0 gap-2 self-start sm:self-auto">
                     <button

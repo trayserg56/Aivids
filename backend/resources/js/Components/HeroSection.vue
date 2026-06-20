@@ -9,7 +9,7 @@ const { open: openContact } = useContactModal();
 </script>
 
 <template>
-    <section class="relative overflow-hidden pt-6 pb-10 sm:pt-8 sm:pb-14 lg:pt-10 lg:pb-20">
+    <section class="relative overflow-hidden pt-6 pb-10 sm:pt-8 sm:pb-14 lg:pt-10 lg:pb-10">
         <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(37,99,235,0.15),_transparent_60%)]" />
 
         <div class="container-site relative text-center">

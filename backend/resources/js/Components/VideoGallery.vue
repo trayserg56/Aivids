@@ -12,7 +12,7 @@ defineProps({
 <template>
     <section id="videos" class="section-block">
         <div class="container-site">
-            <div class="mb-8 max-w-3xl sm:mb-12">
+            <div class="mb-8 max-w-3xl sm:mb-12 lg:mb-6">
                 <h2 class="section-title">{{ title }}</h2>
                 <p v-if="subtitle" class="mt-3 text-base text-text-muted sm:mt-4 sm:text-lg">{{ subtitle }}</p>
             </div>

@@ -31,7 +31,7 @@ defineProps({
 <template>
     <AppLayout>
         <HeroSection :hero="hero" />
-        <div class="container-site pb-10 sm:pb-14 lg:pb-20">
+        <div class="container-site pb-10 sm:pb-14 lg:pb-10">
             <JustifiedVideoStrip
                 v-if="(featuredVideos ?? []).length"
                 :videos="featuredVideos ?? []"
