@@ -1,8 +1,13 @@
 <script setup>
 import { useForm, usePage } from '@inertiajs/vue3';
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useContactModal } from '@/composables/useContactModal';
-import { loadYandexSmartCaptchaScript, readSmartCaptchaToken } from '@/composables/useYandexSmartCaptcha';
+import {
+    destroyYandexSmartCaptcha,
+    loadYandexSmartCaptchaScript,
+    readYandexSmartCaptchaToken,
+    renderYandexSmartCaptcha,
+} from '@/composables/useYandexSmartCaptcha';
 import { formatPhoneInput, isValidPhone, normalizePhone, PHONE_ERROR } from '@/utils/phone';
 
 const props = defineProps({
@@ -18,6 +23,7 @@ const captchaClientKey = computed(() => page.props.captcha?.yandex_client_key ??
 const captchaEnabled = computed(() => Boolean(captchaClientKey.value));
 const captchaContainer = ref(null);
 const captchaLoadError = ref(false);
+const captchaWidgetId = ref(null);
 
 const successText = 'Заявка отправлена! Мы свяжемся с вами в ближайшее время.';
 
@@ -94,9 +100,24 @@ onMounted(async () => {
 
     try {
         await loadYandexSmartCaptchaScript();
+        await nextTick();
+
+        if (!captchaContainer.value) {
+            return;
+        }
+
+        captchaWidgetId.value = renderYandexSmartCaptcha(
+            captchaContainer.value,
+            captchaClientKey.value,
+        );
     } catch {
         captchaLoadError.value = true;
     }
+});
+
+onUnmounted(() => {
+    destroyYandexSmartCaptcha(captchaWidgetId.value);
+    captchaWidgetId.value = null;
 });
 
 function validateCaptcha() {
@@ -104,7 +125,7 @@ function validateCaptcha() {
         return true;
     }
 
-    const token = readSmartCaptchaToken(captchaContainer.value);
+    const token = readYandexSmartCaptchaToken(captchaWidgetId.value);
 
     if (!token) {
         form.setError('smart_token', 'Подтвердите, что вы не робот.');
@@ -139,7 +160,7 @@ function submit() {
     }
 
     const source = resolveSource();
-    const smartToken = readSmartCaptchaToken(captchaContainer.value);
+    const smartToken = readYandexSmartCaptchaToken(captchaWidgetId.value);
 
     form
         .transform((data) => ({
@@ -237,9 +258,8 @@ defineExpose({ reset });
             <div
                 ref="captchaContainer"
                 :id="`${fieldIdPrefix}-captcha`"
-                class="smart-captcha overflow-hidden rounded-xl"
-                :data-sitekey="captchaClientKey"
-                style="height: 100px"
+                class="overflow-hidden rounded-xl"
+                style="min-height: 100px"
             />
             <p v-if="captchaLoadError" class="text-sm text-red-400">
                 Не удалось загрузить капчу. Обновите страницу или попробуйте позже.
