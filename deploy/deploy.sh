@@ -41,4 +41,9 @@ echo "==> Restart queue worker (pick up fresh config)"
 docker compose exec -T app php artisan queue:restart
 docker compose restart queue
 
+if [[ -x deploy/align-git.sh ]]; then
+  echo "==> Align git checkout with origin/main"
+  bash deploy/align-git.sh || echo "WARN: git align skipped (non-fatal)"
+fi
+
 echo "==> Deploy complete: https://adsaivideo.ru"

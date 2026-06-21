@@ -12,7 +12,10 @@ COMPOSE_SSL="${TIMETOEAT_DIR}/compose.ssl.yaml"
 echo "==> Migrate AiVids to https://${DOMAIN}"
 
 cd "${APP_DIR}"
-git pull --ff-only
+
+if [[ -x "${APP_DIR}/deploy/align-git.sh" ]]; then
+  bash "${APP_DIR}/deploy/align-git.sh" || true
+fi
 
 if [[ -f backend/.env ]]; then
   if grep -q '^APP_URL=' backend/.env; then

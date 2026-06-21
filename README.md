@@ -189,6 +189,9 @@ bash /var/www/aivids/deploy/migrate-domain.sh
 - `docker compose up -d --build`
 - **restart nginx** (актуальный IP контейнера `app` — в nginx `resolver 127.0.0.11` + `fastcgi_pass` через переменную, иначе 502 после rebuild)
 - migrate, `config:cache`, `queue:restart`, **restart queue**
+- `deploy/align-git.sh` — синхронизирует git на сервере с `origin/main` (деплой идёт через **rsync**, не `git pull`)
+
+Если на сервере `git pull` ругается на конфликты — вручную: `bash /var/www/aivids/deploy/align-git.sh`
 
 **Не деплоится:** `backend/.env`, корневой `.env`, `Videos/`, `backend/storage/` (медиа на сервере).
 
