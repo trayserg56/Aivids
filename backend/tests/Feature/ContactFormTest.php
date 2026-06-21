@@ -137,7 +137,7 @@ class ContactFormTest extends TestCase
             'smartcaptcha.cloud.yandex.ru/validate' => \Illuminate\Support\Facades\Http::response([
                 'status' => 'ok',
                 'message' => '',
-                'host' => 'aivids.saittikhonova.ru',
+                'host' => 'adsaivideo.ru',
             ]),
         ]);
 

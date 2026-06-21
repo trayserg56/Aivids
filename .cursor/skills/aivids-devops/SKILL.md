@@ -54,8 +54,9 @@ docker compose logs -f app
 - Vite code splitting (`vendor` chunk)
 - Content observers clear homepage cache on CRUD
 
-## Production notes (future)
+## Production
 
-- CDN for `/storage` videos and posters
-- Laravel Octane optional for higher concurrency
-- `npm run build` in deploy pipeline; no Node in production runtime
+- **URL:** https://adsaivideo.ru
+- **Server:** `/var/www/aivids` on VPS (nginx reverse proxy via timetoeat stack, app on `:8092`)
+- Domain migration: `deploy/migrate-domain.sh`
+- Deploy: push to `main` → GitHub Actions → `deploy/deploy.sh`

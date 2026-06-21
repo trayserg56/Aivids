@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="${DOMAIN:-aivids.saittikhonova.ru}"
+DOMAIN="${DOMAIN:-adsaivideo.ru}"
 APP_DIR="${APP_DIR:-/var/www/aivids}"
 TIMETOEAT_DIR="${TIMETOEAT_DIR:-/var/www/timetoeat}"
 CERTBOT_EMAIL="${CERTBOT_EMAIL:-admin@saittikhonova.ru}"
@@ -65,7 +65,7 @@ MAIL_FROM_NAME="\${APP_NAME}"
 
 VIDEOS_SOURCE_PATH=/var/www/Videos
 
-# Yandex SmartCaptcha — те же ключи, что на saittikhonova.ru (поддомены работают автоматически)
+# Yandex SmartCaptcha — добавьте adsaivideo.ru в список разрешённых сайтов в консоли Yandex Cloud
 YANDEX_SMARTCAPTCHA_CLIENT_KEY=
 YANDEX_SMARTCAPTCHA_SERVER_KEY=
 
@@ -102,11 +102,11 @@ docker compose exec -T app php artisan route:cache
 docker compose exec -T app php artisan view:cache
 docker compose exec -T app php artisan filament:optimize
 
-NGINX_CONF="${TIMETOEAT_DIR}/docker/nginx/aivids-ai.conf"
-cp "${APP_DIR}/deploy/nginx/aivids-ai.http.conf" "${NGINX_CONF}"
+NGINX_CONF="${TIMETOEAT_DIR}/docker/nginx/adsaivideo.conf"
+cp "${APP_DIR}/deploy/nginx/adsaivideo.http.conf" "${NGINX_CONF}"
 
-if ! grep -q 'aivids-ai.conf' "${TIMETOEAT_DIR}/compose.ssl.yaml"; then
-  sed -i '/active-ssl.conf/a\      - ./docker/nginx/aivids-ai.conf:/etc/nginx/conf.d/aivids-ai.conf:ro' \
+if ! grep -q 'adsaivideo.conf' "${TIMETOEAT_DIR}/compose.ssl.yaml"; then
+  sed -i '/active-ssl.conf/a\      - ./docker/nginx/adsaivideo.conf:/etc/nginx/conf.d/adsaivideo.conf:ro' \
     "${TIMETOEAT_DIR}/compose.ssl.yaml"
 fi
 
@@ -125,6 +125,7 @@ if [[ ! -d "${TIMETOEAT_DIR}/certbot/conf/live/${DOMAIN}" ]]; then
     certbot/certbot certonly \
     --webroot -w /var/www/certbot \
     -d "${DOMAIN}" \
+    -d "www.${DOMAIN}" \
     --email "${CERTBOT_EMAIL}" \
     --agree-tos \
     --no-eff-email \
@@ -132,7 +133,7 @@ if [[ ! -d "${TIMETOEAT_DIR}/certbot/conf/live/${DOMAIN}" ]]; then
 fi
 
 if [[ -d "${TIMETOEAT_DIR}/certbot/conf/live/${DOMAIN}" ]]; then
-  cp "${APP_DIR}/deploy/nginx/aivids-ai.ssl.conf" "${NGINX_CONF}"
+  cp "${APP_DIR}/deploy/nginx/adsaivideo.ssl.conf" "${NGINX_CONF}"
   docker exec timetoeat-nginx-1 nginx -t
   docker exec timetoeat-nginx-1 nginx -s reload
 fi

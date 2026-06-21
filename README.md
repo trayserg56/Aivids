@@ -3,7 +3,7 @@
 Лендинг и CMS для услуги по созданию AI-роликов. Дизайн-референс: [neurofilms.ru](https://neurofilms.ru/).
 
 **Репозиторий:** https://github.com/trayserg56/Aivids  
-**Прод:** https://aivids.saittikhonova.ru
+**Прод:** https://adsaivideo.ru
 
 ## Стек
 
@@ -132,7 +132,7 @@ YANDEX_SMARTCAPTCHA_CLIENT_KEY=ysc1_...
 YANDEX_SMARTCAPTCHA_SERVER_KEY=ysc2_...
 ```
 
-Если на основном домене (`saittikhonova.ru`) капча уже настроена — **отдельная для поддомена не нужна**: в списке разрешённых сайтов достаточно базового домена, поддомены (`aivids.saittikhonova.ru`) работают с **теми же ключами**. Без ключей капча отключена (удобно для локальной разработки).
+Добавьте **`adsaivideo.ru`** (и при необходимости `www.adsaivideo.ru`) в список разрешённых сайтов в консоли Yandex SmartCaptcha. Без ключей капча отключена (удобно для локальной разработки).
 
 Invisible-режим: кнопки «Я не робот» нет; challenge — только при подозрительном запросе. Ссылка на политику Yandex — в тексте формы.
 
@@ -166,11 +166,24 @@ Push в `main` → GitHub Actions: `npm test` + `npm run build` → rsync на V
 
 | Параметр | Значение |
 |----------|----------|
+| Домен | **adsaivideo.ru** |
 | Сервер | `root@5.253.188.165` |
 | Путь | `/var/www/aivids` |
-| Публичный URL | https://aivids.saittikhonova.ru |
 
-Настройка секретов: [deploy/GITHUB_ACTIONS.md](deploy/GITHUB_ACTIONS.md)
+### Смена домена (миграция)
+
+После настройки DNS (A-запись `adsaivideo.ru` → IP сервера):
+
+```bash
+ssh root@5.253.188.165
+bash /var/www/aivids/deploy/migrate-domain.sh
+```
+
+Скрипт обновит `APP_URL`, nginx-proxy (timetoeat), выпустит SSL-сертификат, пересоберёт config cache.
+
+Старый домен `aivids.saittikhonova.ru` можно оставить с редиректом или отключить отдельно в nginx.
+
+Настройка секретов CI: [deploy/GITHUB_ACTIONS.md](deploy/GITHUB_ACTIONS.md)
 
 `deploy/deploy.sh` после каждого деплоя:
 - `docker compose up -d --build`

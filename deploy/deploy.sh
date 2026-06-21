@@ -41,4 +41,4 @@ echo "==> Restart queue worker (pick up fresh config)"
 docker compose exec -T app php artisan queue:restart
 docker compose restart queue
 
-echo "==> Deploy complete: https://aivids.saittikhonova.ru"
+echo "==> Deploy complete: https://adsaivideo.ru"

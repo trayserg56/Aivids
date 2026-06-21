@@ -36,7 +36,7 @@ class YandexSmartCaptchaValidatorTest extends TestCase
             'smartcaptcha.cloud.yandex.ru/validate' => Http::response([
                 'status' => 'ok',
                 'message' => '',
-                'host' => 'aivids.saittikhonova.ru',
+                'host' => 'adsaivideo.ru',
             ]),
         ]);
 
